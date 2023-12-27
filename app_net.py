@@ -10,8 +10,9 @@ from ultralytics.utils import ops
 class MyNet:
     def __init__(self, modelfile: Union[str, Path]):
         self.device = 'cpu'
-        self._lock = threading.Lock()
         self.imgsz = [640, 640]
+        self._lock = threading.Lock()
+        self.mask = (0,)
 
         self.model = torch.load(modelfile)
 
@@ -97,20 +98,21 @@ class MyNet:
         pred = ops.non_max_suppression(preds, 0.6, 0.7, agnostic=False, max_det=300, classes=None)[0]
 
         for p in pred:
-            p = self.scale_boxes(img.shape[2:], p, orig_img.shape)
-            pos1, pos2 = (int(p[0]), int(p[1])), (int(p[2]), int(p[3]))
-            label = f'{self.model.names[int(p[5])]} {float(p[4]):.2f}'
-            im_c, im_lw = (0, 255, 127), max(round(sum(orig_img.shape) / 2 * 0.003), 2)
-            tf, sf = max(im_lw - 1, 1), im_lw / 3
+            if p[5] in self.mask:
+                p = self.scale_boxes(img.shape[2:], p, orig_img.shape)
+                pos1, pos2 = (int(p[0]), int(p[1])), (int(p[2]), int(p[3]))
+                label = f'{self.model.names[int(p[5])]} {float(p[4]):.2f}'
+                im_c, im_lw = (0, 255, 127), max(round(sum(orig_img.shape) / 2 * 0.003), 2)
+                tf, sf = max(im_lw - 1, 1), im_lw / 3
 
-            cv.rectangle(orig_img, pos1, pos2, im_c, thickness=im_lw, lineType=cv.LINE_AA)
-            cv.putText(orig_img,
-                       label, (pos1[0], pos1[1]),
-                       0,
-                       sf,
-                       (255, 255, 255),
-                       thickness=tf,
-                       lineType=cv.LINE_AA)
+                cv.rectangle(orig_img, pos1, pos2, im_c, thickness=im_lw, lineType=cv.LINE_AA)
+                cv.putText(orig_img,
+                           label, (pos1[0], pos1[1]),
+                           0,
+                           sf,
+                           (255, 255, 255),
+                           thickness=tf,
+                           lineType=cv.LINE_AA)
 
         return orig_img
 
