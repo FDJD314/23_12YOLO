@@ -17,7 +17,7 @@ class MyNet:
         self.model = torch.load(modelfile)
 
         self.model.eval()
-        # self.warmup()
+        self.warmup()
 
     def __call__(self, data):
         path = data["path"]
@@ -40,10 +40,9 @@ class MyNet:
             cap.release()
             video.release()
 
-    # def warmup(self, imgsz=(1, 3, 640, 640)):
-    #     im = torch.empty(*imgsz, dtype=torch.half if self.fp16 else torch.float, device=self.device)  # input
-    #     for _ in range(2 if self.jit else 1):
-    #         self.forward(im)  # warmup
+    def warmup(self, imgsz=(1, 3, 640, 640)):
+        im = torch.empty(*imgsz, dtype=torch.float, device=self.device)  # input
+        self.model.forward(im)  # warmup
 
     def run(self, im0s):
         with self._lock:
@@ -118,7 +117,7 @@ class MyNet:
 
 
 if __name__ == '__main__':
-    # data = {"mode": "image", "path": "source/test.jpg"}
-    data = {"mode": "video", "path": "source/test.mp4"}
+    data = {"mode": "image", "path": "source/test.jpg"}
+    # data = {"mode": "video", "path": "source/test.mp4"}
     net = MyNet('model/model.pt')
     net(data)
