@@ -10,17 +10,16 @@ from ultralytics.nn import attempt_load_one_weight
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.utils import checks, callbacks, ops
 from ultralytics.utils.torch_utils import select_device
+from torchsummary import summary
 
 
 class MyNet:
     def __init__(self, modelfile: Union[str, Path]):
-        # self.args = get_cfg(cfg, overrides)
-        # self.done_warmup = False
         self.dnn = False
         self.data = 'coco.yaml'
         self.half = False
         self.device = 'cpu'
-        verbose = True
+        verbose = False
         self.callbacks = callbacks.get_default_callbacks()
         self._lock = threading.Lock()
         self.conf = 0.25
@@ -30,27 +29,17 @@ class MyNet:
         self.classes = None
         self.path = None
         self.imgsz = [640, 640]
-        callbacks.add_integration_callbacks(self)
 
-        modelfile = str(modelfile).strip()
-        modelfile = checks.check_model_file_from_stem(modelfile)
-        model, _ = attempt_load_one_weight(modelfile)
-        self.model = AutoBackend(model,
-                                 device=select_device(self.device, verbose=verbose),
-                                 dnn=self.dnn,
-                                 data=self.data,
-                                 fp16=self.half,
-                                 fuse=True,
-                                 verbose=verbose)
+        self.model = torch.load(modelfile)
 
         self.model.eval()
-        self.model.warmup()
+        # self.warmup()
 
     def __call__(self, data=None):
         self.path = data["path"]
         if data["mode"] == "image":
             img_r = self.run(cv.imread(self.path))[0].plot()
-            cv.imwrite("results.jpg", img_r)
+            cv.imwrite("tmp/results.jpg", img_r)
         elif data["mode"] == "video":
             # self.run()
 
@@ -70,33 +59,51 @@ class MyNet:
             cap.release()
             video.release()
 
-    def run(self, im0s, *args, **kwargs):
-        profilers = (ops.Profile(), ops.Profile(), ops.Profile())
-        # self.run_callbacks('on_predict_start')
+    def warmup(self, imgsz=(1, 3, 640, 640)):
+        im = torch.empty(*imgsz, dtype=torch.half if self.fp16 else torch.float, device=self.device)  # input
+        for _ in range(2 if self.jit else 1):
+            self.forward(im)  # warmup
+
+    def run(self, im0s):
         with self._lock:
-            # self.run_callbacks('on_predict_batch_start')
-
-            # Preprocess
-            with profilers[0]:
-                im = self.preprocess([im0s])
-
-            # Inference
-            with profilers[1]:
-                preds = self.model(im, augment=False, visualize=False, embed=None, *args, **kwargs)
-
-            # Postprocess
-            with profilers[2]:
-                results = self.postprocess(preds, im, [im0s])
-
-        #     self.run_callbacks('on_predict_postprocess_end')
-        #     self.run_callbacks('on_predict_batch_end')
-        # self.run_callbacks('on_predict_end')
-
+            im = self.preprocess(im0s)
+            preds = self.model(im)
+            results = self.postprocess(preds, im, [im0s])
         return results
+
+    # def resize(self, img):
+    #     c_shape = img.shape[:2]
+    #     r = min(self.imgsz[0] / c_shape[0], self.imgsz[1] / c_shape[1])
+    #
+    #     new_unpad = int(round(c_shape[0] * r)), int(round(c_shape[1] * r))
+    #     # dw, dh = self.imgsz[1] - new_unpad[1], self.imgsz[0] - new_unpad[0]  # wh padding
+    #     # dw, dh = np.mod(dw, 32)/2, np.mod(dh, 32)/2  # wh padding
+    #
+    #     if c_shape[::-1] != new_unpad:  # resize
+    #         img = cv.resize(img, new_unpad, interpolation=cv.INTER_LINEAR)
+    #     # top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    #     # left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+    #     # img = cv.copyMakeBorder(img, top, bottom, left, right, cv.BORDER_CONSTANT,
+    #     #                         value=(114, 114, 114))  # add border
+    #     return img
+    #
+    # def preprocess(self, im):
+    #     not_tensor = not isinstance(im, torch.Tensor)
+    #     if not_tensor:
+    #         im = self.resize(im)
+    #         im = im.transpose((2, 1, 0))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+    #         im = np.ascontiguousarray(im)  # contiguous
+    #         im = torch.from_numpy(im)
+    #
+    #     im = im.to(self.device)
+    #     im = im.float()
+    #     if not_tensor:
+    #         im /= 255  # 0 - 255 to 0.0 - 1.0
+    #     return torch.unsqueeze(im, dim=0)
 
     def pre_transform(self, im):
         same_shapes = all(x.shape == im[0].shape for x in im)
-        letterbox = LetterBox(self.imgsz, auto=same_shapes and self.model.pt, stride=self.model.stride)
+        letterbox = LetterBox(auto=True)
         return [letterbox(image=x) for x in im]
 
     def preprocess(self, im):
@@ -131,14 +138,10 @@ class MyNet:
             results.append(Results(orig_img, path=self.path, names=self.model.names, boxes=pred))
         return results
 
-    def run_callbacks(self, event: str):
-        """Runs all registered callbacks for a specific event."""
-        for callback in self.callbacks.get(event, []):
-            callback(self)
-
 
 if __name__ == '__main__':
-    # data = {"mode": "image", "path": "test.jpg"}
-    data = {"mode": "video", "path": "test.mp4"}
-    net = MyNet('yolov8n.pt')
+    data = {"mode": "image", "path": "source/test.jpg"}
+    # data = {"mode": "video", "path": "test.mp4"}
+    # net = MyNet('yolov8n.pt')
+    net = MyNet('model/model.pt')
     net(data)
