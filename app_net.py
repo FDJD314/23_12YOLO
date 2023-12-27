@@ -9,7 +9,7 @@ from ultralytics.utils import ops
 
 class MyNet:
     def __init__(self, modelfile: Union[str, Path]):
-        self.device = 'cpu'
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.imgsz = [640, 640]
         self._lock = threading.Lock()
         self.mask = (0,)
