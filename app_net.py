@@ -71,54 +71,36 @@ class MyNet:
             results = self.postprocess(preds, im, [im0s])
         return results
 
-    # def resize(self, img):
-    #     c_shape = img.shape[:2]
-    #     r = min(self.imgsz[0] / c_shape[0], self.imgsz[1] / c_shape[1])
-    #
-    #     new_unpad = int(round(c_shape[0] * r)), int(round(c_shape[1] * r))
-    #     # dw, dh = self.imgsz[1] - new_unpad[1], self.imgsz[0] - new_unpad[0]  # wh padding
-    #     # dw, dh = np.mod(dw, 32)/2, np.mod(dh, 32)/2  # wh padding
-    #
-    #     if c_shape[::-1] != new_unpad:  # resize
-    #         img = cv.resize(img, new_unpad, interpolation=cv.INTER_LINEAR)
-    #     # top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    #     # left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    #     # img = cv.copyMakeBorder(img, top, bottom, left, right, cv.BORDER_CONSTANT,
-    #     #                         value=(114, 114, 114))  # add border
-    #     return img
-    #
-    # def preprocess(self, im):
-    #     not_tensor = not isinstance(im, torch.Tensor)
-    #     if not_tensor:
-    #         im = self.resize(im)
-    #         im = im.transpose((2, 1, 0))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
-    #         im = np.ascontiguousarray(im)  # contiguous
-    #         im = torch.from_numpy(im)
-    #
-    #     im = im.to(self.device)
-    #     im = im.float()
-    #     if not_tensor:
-    #         im /= 255  # 0 - 255 to 0.0 - 1.0
-    #     return torch.unsqueeze(im, dim=0)
+    def resize(self, img):
+        c_shape = img.shape[:2]
+        r = min(self.imgsz[0] / c_shape[0], self.imgsz[1] / c_shape[1])
 
-    def pre_transform(self, im):
-        same_shapes = all(x.shape == im[0].shape for x in im)
-        letterbox = LetterBox(auto=True)
-        return [letterbox(image=x) for x in im]
+        new_unpad = int(round(c_shape[1] * r)), int(round(c_shape[0] * r))
+        # dw, dh = self.imgsz[1] - new_unpad[1], self.imgsz[0] - new_unpad[0]  # wh padding
+        # dw, dh = np.mod(dw, 32)/2, np.mod(dh, 32)/2  # wh padding
+
+        if c_shape[::-1] != new_unpad:  # resize
+            img = cv.resize(img, new_unpad, interpolation=cv.INTER_LINEAR)
+        # top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+        # left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+        # img = cv.copyMakeBorder(img, top, bottom, left, right, cv.BORDER_CONSTANT,
+        #                         value=(114, 114, 114))  # add border
+        return img
 
     def preprocess(self, im):
         not_tensor = not isinstance(im, torch.Tensor)
         if not_tensor:
-            im = np.stack(self.pre_transform(im))
-            im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+            im = self.resize(im)
+            cv.imwrite('tmp.jpg', im)
+            im = im.transpose((2, 0, 1))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
             im = np.ascontiguousarray(im)  # contiguous
             im = torch.from_numpy(im)
 
         im = im.to(self.device)
-        im = im.half() if self.model.fp16 else im.float()  # uint8 to fp16/32
+        im = im.float()
         if not_tensor:
             im /= 255  # 0 - 255 to 0.0 - 1.0
-        return im
+        return torch.unsqueeze(im, dim=0)
 
     def postprocess(self, preds, img, orig_imgs):
         preds = ops.non_max_suppression(preds,
