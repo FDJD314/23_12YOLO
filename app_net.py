@@ -12,7 +12,9 @@ class MyNet:
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.imgsz = [640, 640]
         self._lock = threading.Lock()
-        self.mask = (0,)
+        # self.mask = (0,)
+        self.mask = tuple(range(80))
+        print(self.mask)
 
         self.model = torch.load(modelfile)
 
@@ -21,7 +23,9 @@ class MyNet:
 
     def __call__(self, data):
         path = data["path"]
-        if data["mode"] == "image":
+        if data["mode"] == "np":
+            return self.run(path)
+        elif data["mode"] == "image":
             img_r = self.run(cv.imread(path))
             cv.imwrite("tmp/results.jpg", img_r)
         elif data["mode"] == "video":
