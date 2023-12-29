@@ -14,7 +14,6 @@ class MyNet:
         self._lock = threading.Lock()
         # self.mask = (0,)
         self.mask = tuple(range(80))
-        print(self.mask)
 
         self.model = torch.load(modelfile)
 

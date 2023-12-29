@@ -1,6 +1,7 @@
-from flask import Flask, request, Response
+from flask import Flask, request, Response, send_from_directory
 import numpy as np
 import cv2 as cv
+import os
 import app_net
 
 app = Flask(__name__)
@@ -8,21 +9,24 @@ app = Flask(__name__)
 
 @app.route('/', methods=["GET", "POST"])
 def dataproc():
-    f = request.data
-    im = cv.imdecode(np.frombuffer(f, np.uint8), cv.IMREAD_COLOR)
-    # cv.imwrite("webtest.jpg", im)
+    if request.method == 'POST':
+        f = request.data
+        im = cv.imdecode(np.frombuffer(f, np.uint8), cv.IMREAD_COLOR)
+        # cv.imwrite("webtest.jpg", im)
 
-    im = cv.rotate(im, cv.ROTATE_90_CLOCKWISE)
-    data = {"mode": "np", "path": im}
-    im_r = net(data)
+        im = cv.rotate(im, cv.ROTATE_90_CLOCKWISE)
+        data = {"mode": "np", "path": im}
+        im_r = net(data)
 
-    # im_r = cv.imread("source/test.jpg")
-    _, img_encode = cv.imencode('.jpg', im_r)
-    img_bytes = img_encode.tobytes()
-    r = Response()
-    r.headers['Content-Type'] = 'image/jpeg'
-    r.data = img_bytes
-    return r
+        # im_r = cv.imread("source/test.jpg")
+        _, img_encode = cv.imencode('.jpg', im_r)
+        img_bytes = img_encode.tobytes()
+        r = Response()
+        r.headers['Content-Type'] = 'image/jpeg'
+        r.data = img_bytes
+        return r
+    else:
+        return send_from_directory(os.path.join(app.root_path, 'source'), "app-release.apk", as_attachment=True)
 
 
 if __name__ == '__main__':
