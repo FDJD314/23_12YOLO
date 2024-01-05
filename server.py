@@ -32,13 +32,10 @@ def dataproc():
             f = request.files.get('file')
             f.save("tmp/recevie.mp4")
             data = {"mode": "video", "path": "tmp/recevie.mp4"}
-            # resultPath = net(data)
-            # return send_file(resultPath)
-            return send_file("tmp/results.mp4", mimetype='application/x-gzip')
+            resultPath = net(data)
+            return send_file(os.path.join('tmp', resultPath), mimetype='application/x-gzip')
     else:
-        # return send_file(os.path.join(app.root_path, 'source', "app-release.apk"), mimetype='application/x-gzip',
-        #                  as_attachment=True)
-        return send_file("tmp/results.mp4", mimetype='application/x-gzip')
+        return send_file("source/app-release.apk", mimetype='application/x-gzip')
 
 
 if __name__ == '__main__':
