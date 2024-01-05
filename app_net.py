@@ -42,6 +42,7 @@ class MyNet:
 
             cap.release()
             video.release()
+            return "results.mp4"
 
     def warmup(self, imgsz=(1, 3, 640, 640)):
         im = torch.empty(*imgsz, dtype=torch.float, device=self.device)  # input
